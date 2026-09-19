@@ -43,22 +43,30 @@ const setupMQTT = () => {
     });
   });
 
+  let lastAITime = 0;
+
   client.on('message', async (topic, message) => {
     if (topic === 'greenpulse/sensors') {
       try {
         console.log('Received sensor data:', message.toString());
         const sensorData = JSON.parse(message.toString());
         
-        // 1. Log to Database
+        // 1. Log to Database (Every 2 seconds - Live Data)
         await saveSensorData(sensorData);
 
-        // 2. Analyze with AI Agent
-        const aiResponse = await analyzePlantData(sensorData);
+        // Throttle AI Agent calls to once every 20 seconds
+        const now = Date.now();
+        if (now - lastAITime >= 20000) {
+          lastAITime = now;
+          
+          // 2. Analyze with AI Agent
+          const aiResponse = await analyzePlantData(sensorData);
 
-        // 3. Publish response back for ESP32 and Node-RED
-        if (aiResponse) {
-          client.publish('greenpulse/alerts', JSON.stringify(aiResponse));
-          console.log('Published AI response to greenpulse/alerts');
+          // 3. Publish response back for ESP32 and Node-RED
+          if (aiResponse) {
+            client.publish('greenpulse/alerts', JSON.stringify(aiResponse));
+            console.log('Published AI response to greenpulse/alerts');
+          }
         }
         
       } catch (error) {
