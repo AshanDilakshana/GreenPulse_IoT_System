@@ -15,17 +15,31 @@ static void globalMqttCallback(char* topic, byte* payload, unsigned int length) 
 
         Serial.printf("[MQTT] Message on [%s]: %s\n", topic, msg.c_str());
 
-        StaticJsonDocument<512> doc;
+        StaticJsonDocument<1024> doc; // Increased size to handle larger response
         DeserializationError err = deserializeJson(doc, msg);
         if (err) {
             Serial.printf("[MQTT] JSON parse error: %s\n", err.c_str());
             return;
         }
 
-        // Expected backend payload: {"color": "#FF0000", "quote": "...", "alert": "..."}
-        if (doc.containsKey("color") && instance->_actuator != nullptr) {
-            const char* colorHex = doc["color"];
-            instance->_actuator->setColorHex(colorHex);
+        // Expected backend payload: {"pump_status": "ON", "smart_lamp_status": "ON", "indicator_color": "RED", ...}
+        if (instance->_actuator != nullptr) {
+            if (doc.containsKey("indicator_color")) {
+                const char* colorStr = doc["indicator_color"];
+                instance->_actuator->setIndicatorColor(colorStr);
+            }
+            if (doc.containsKey("pump_status")) {
+                const char* pumpStatus = doc["pump_status"];
+                instance->_actuator->setPump(String(pumpStatus) == "ON");
+            }
+            if (doc.containsKey("smart_lamp_status")) {
+                const char* lampStatus = doc["smart_lamp_status"];
+                instance->_actuator->setLamp(String(lampStatus) == "ON");
+            }
+            if (doc.containsKey("dashboard_care_quote")) {
+                const char* quote = doc["dashboard_care_quote"];
+                Serial.printf("[MQTT] Care Quote: %s\n", quote);
+            }
         }
     }
 }
@@ -50,7 +64,7 @@ void MqttManager::begin(ActuatorManager* actuator) {
     _mqttClient.setServer(_broker, _port);
     _mqttClient.setCallback(globalMqttCallback);
     // Increase buffer size to handle JSON payloads comfortably
-    _mqttClient.setBufferSize(512);
+    _mqttClient.setBufferSize(1024);
 
     reconnect();
 }
@@ -93,6 +107,8 @@ bool MqttManager::publishSensors(const SensorData& data) {
     doc["temperature"] = round(data.temperature * 10.0) / 10.0;
     doc["humidity"] = round(data.humidity * 10.0) / 10.0;
     doc["soilMoisture"] = data.soilMoisture;
+    doc["co2"] = data.co2;
+    doc["light"] = data.light;
 
     char buffer[256];
     size_t len = serializeJson(doc, buffer);

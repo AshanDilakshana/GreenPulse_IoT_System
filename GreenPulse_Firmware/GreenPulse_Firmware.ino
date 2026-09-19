@@ -7,6 +7,8 @@
  *  - DHT22 (Temperature & Humidity) on GPIO 4
  *  - Capacitive Soil Moisture Sensor on GPIO 34 (Analog ADC1)
  *  - RGB LED (Urgency / Alert Indicator) on GPIO 25 (Red), GPIO 26 (Green), GPIO 27 (Blue)
+ *  - Water Pump Relay on GPIO 14
+ *  - Smart Lamp Relay on GPIO 12
  *  - 16x2 I2C LCD Display (SDA: GPIO 21, SCL: GPIO 22, Address 0x27)
  * 
  * Cloud:
@@ -27,16 +29,18 @@
 #define PIN_LED_RED      25
 #define PIN_LED_GREEN    26
 #define PIN_LED_BLUE     27
+#define PIN_PUMP         14
+#define PIN_LAMP         12
 #define LCD_I2C_ADDR     0x27
 
 // Sensor Sampling Interval (milliseconds)
-#define SENSOR_INTERVAL_MS 60000 // Every 60 seconds
+#define SENSOR_INTERVAL_MS 2000 // Every 2 seconds
 
 // Instantiate Component Managers (OOP Objects)
 WifiManager     wifi(WIFI_SSID, WIFI_PASSWORD);
 SensorManager   sensors(PIN_DHT, PIN_SOIL, DHT22, SENSOR_INTERVAL_MS);
 DisplayManager  display(LCD_I2C_ADDR, 16, 2);
-ActuatorManager rgbLed(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
+ActuatorManager rgbLed(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE, PIN_PUMP, PIN_LAMP);
 MqttManager     mqtt(MQTT_BROKER, MQTT_PORT, MQTT_CLIENT_ID, ROOT_CA, CERTIFICATE, PRIVATE_KEY);
 
 void setup() {
@@ -77,6 +81,9 @@ void loop() {
     // Keep Wi-Fi and MQTT connections alive
     wifi.maintain();
     mqtt.loop();
+
+    // Handle Actuator non-blocking tasks (like blinking LED)
+    rgbLed.loop();
 
     // Read sensors at defined interval
     if (sensors.isReady()) {
