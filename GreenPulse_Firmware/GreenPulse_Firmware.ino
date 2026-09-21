@@ -9,7 +9,7 @@
  *  - RGB LED (Urgency / Alert Indicator) on GPIO 25 (Red), GPIO 26 (Green), GPIO 27 (Blue)
  *  - Water Pump Relay on GPIO 14
  *  - Smart Lamp Relay on GPIO 12
- *  - 16x2 I2C LCD Display (SDA: GPIO 21, SCL: GPIO 22, Address 0x27)
+ *  - 16x4 I2C LCD Display (1604A v1.1 with HW-61 backpack, SDA: GPIO 21, SCL: GPIO 22, Address 0x27 or 0x3F)
  * 
  * Cloud:
  *  - AWS IoT Core over mutual TLS (Port 8883)
@@ -26,20 +26,21 @@
 // Pin Definitions
 #define PIN_DHT          4
 #define PIN_SOIL         34
-#define PIN_LED_RED      25
-#define PIN_LED_GREEN    26
-#define PIN_LED_BLUE     27
-#define PIN_PUMP         14
-#define PIN_LAMP         12
-#define LCD_I2C_ADDR     0x27
+#define PIN_CO2          32
+#define PIN_LED_RED      13
+#define PIN_LED_GREEN    12
+#define PIN_LED_BLUE     14
+#define PIN_PUMP         25 // Moved from 14 to avoid conflict with Blue
+#define PIN_LAMP         26 // Moved from 12 to avoid conflict with Green
+#define LCD_I2C_ADDR     0x27 // Typically 0x27 (PCF8574T) or 0x3F (PCF8574AT)
 
 // Sensor Sampling Interval (milliseconds)
 #define SENSOR_INTERVAL_MS 2000 // Every 2 seconds
 
 // Instantiate Component Managers (OOP Objects)
 WifiManager     wifi(WIFI_SSID, WIFI_PASSWORD);
-SensorManager   sensors(PIN_DHT, PIN_SOIL, DHT22, SENSOR_INTERVAL_MS);
-DisplayManager  display(LCD_I2C_ADDR, 16, 2);
+SensorManager   sensors(PIN_DHT, PIN_SOIL, PIN_CO2, DHT22, SENSOR_INTERVAL_MS);
+DisplayManager  display(LCD_I2C_ADDR, 16, 4); // 1604A (16 columns x 4 rows)
 ActuatorManager rgbLed(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE, PIN_PUMP, PIN_LAMP);
 MqttManager     mqtt(MQTT_BROKER, MQTT_PORT, MQTT_CLIENT_ID, ROOT_CA, CERTIFICATE, PRIVATE_KEY);
 
@@ -52,27 +53,27 @@ void setup() {
 
     // 1. Initialize Display & Actuators
     display.begin();
-    display.showStatus("GreenPulse IoT", "Starting...");
+    display.showStatus("GreenPulse IoT", "1604A Display OK", "Initializing...", "");
     rgbLed.begin();
 
     // 2. Initialize Sensors
     sensors.begin();
 
     // 3. Connect to Wi-Fi
-    display.showStatus("Wi-Fi Connecting", WIFI_SSID);
+    display.showStatus("GreenPulse IoT", "Wi-Fi Connecting", WIFI_SSID, "Please wait...");
     wifi.connect();
 
     if (wifi.isConnected()) {
-        display.showStatus("Wi-Fi Connected!", "Connecting MQTT");
+        display.showStatus("GreenPulse IoT", "Wi-Fi: Connected", "Connecting AWS..", "");
     } else {
-        display.showStatus("Wi-Fi Failed!", "Retrying in loop");
+        display.showStatus("GreenPulse IoT", "Wi-Fi: FAILED", "Retrying...", "");
     }
 
     // 4. Initialize Secure MQTT (AWS IoT Core mTLS)
     mqtt.begin(&rgbLed);
 
     if (mqtt.isConnected()) {
-        display.showStatus("GreenPulse Ready", "AWS IoT: OK");
+        display.showStatus("GreenPulse IoT", "Wi-Fi : OK", "AWS   : CONNECTED", "System Ready!");
     }
     delay(1500);
 }
@@ -89,8 +90,21 @@ void loop() {
     if (sensors.isReady()) {
         SensorData data = sensors.read();
 
-        // 1. Update local I2C LCD Display (Sensor data & MQTT status only, NO LLM text)
-        display.showSensorData(data, mqtt.isConnected());
+        // 1. Alternate LCD Display every 4 seconds (3 screens total)
+        // Since isReady() triggers every 2 seconds, we show each screen for 2 cycles (4 seconds)
+        static int displayCounter = 0;
+        if (displayCounter < 2) {
+            display.showSensorsPart1(data);
+        } else if (displayCounter < 4) {
+            display.showSensorsPart2(data);
+        } else {
+            display.showNetworkStatus(wifi.isConnected(), mqtt.isConnected());
+        }
+        
+        displayCounter++;
+        if (displayCounter >= 6) {
+            displayCounter = 0;
+        }
 
         // 2. Publish sensor readings to AWS IoT Core
         if (data.isValid) {

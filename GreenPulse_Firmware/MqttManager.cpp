@@ -6,40 +6,42 @@ static MqttManager* instance = nullptr;
 
 static void globalMqttCallback(char* topic, byte* payload, unsigned int length) {
     if (instance != nullptr) {
-        // Forward to member method
-        // Using static reference
-        String msg = "";
-        for (unsigned int i = 0; i < length; i++) {
-            msg += (char)payload[i];
+        instance->onMessage(topic, payload, length);
+    }
+}
+
+void MqttManager::onMessage(char* topic, byte* payload, unsigned int length) {
+    String msg = "";
+    for (unsigned int i = 0; i < length; i++) {
+        msg += (char)payload[i];
+    }
+
+    Serial.printf("[MQTT] Message on [%s]: %s\n", topic, msg.c_str());
+
+    StaticJsonDocument<1024> doc; // Increased size to handle larger response
+    DeserializationError err = deserializeJson(doc, msg);
+    if (err) {
+        Serial.printf("[MQTT] JSON parse error: %s\n", err.c_str());
+        return;
+    }
+
+    // Expected backend payload: {"pump_status": "ON", "smart_lamp_status": "ON", "indicator_color": "RED", ...}
+    if (_actuator != nullptr) {
+        if (doc.containsKey("indicator_color")) {
+            const char* colorStr = doc["indicator_color"];
+            _actuator->setIndicatorColor(colorStr);
         }
-
-        Serial.printf("[MQTT] Message on [%s]: %s\n", topic, msg.c_str());
-
-        StaticJsonDocument<1024> doc; // Increased size to handle larger response
-        DeserializationError err = deserializeJson(doc, msg);
-        if (err) {
-            Serial.printf("[MQTT] JSON parse error: %s\n", err.c_str());
-            return;
+        if (doc.containsKey("pump_status")) {
+            const char* pumpStatus = doc["pump_status"];
+            _actuator->setPump(String(pumpStatus) == "ON");
         }
-
-        // Expected backend payload: {"pump_status": "ON", "smart_lamp_status": "ON", "indicator_color": "RED", ...}
-        if (instance->_actuator != nullptr) {
-            if (doc.containsKey("indicator_color")) {
-                const char* colorStr = doc["indicator_color"];
-                instance->_actuator->setIndicatorColor(colorStr);
-            }
-            if (doc.containsKey("pump_status")) {
-                const char* pumpStatus = doc["pump_status"];
-                instance->_actuator->setPump(String(pumpStatus) == "ON");
-            }
-            if (doc.containsKey("smart_lamp_status")) {
-                const char* lampStatus = doc["smart_lamp_status"];
-                instance->_actuator->setLamp(String(lampStatus) == "ON");
-            }
-            if (doc.containsKey("dashboard_care_quote")) {
-                const char* quote = doc["dashboard_care_quote"];
-                Serial.printf("[MQTT] Care Quote: %s\n", quote);
-            }
+        if (doc.containsKey("smart_lamp_status")) {
+            const char* lampStatus = doc["smart_lamp_status"];
+            _actuator->setLamp(String(lampStatus) == "ON");
+        }
+        if (doc.containsKey("dashboard_care_quote")) {
+            const char* quote = doc["dashboard_care_quote"];
+            Serial.printf("[MQTT] Care Quote: %s\n", quote);
         }
     }
 }

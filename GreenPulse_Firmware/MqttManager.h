@@ -21,9 +21,10 @@ private:
     unsigned long _lastReconnectAttempt;
 
     void reconnect();
-    void onMessage(char* topic, byte* payload, unsigned int length);
 
 public:
+    void onMessage(char* topic, byte* payload, unsigned int length);
+
     MqttManager(const char* broker, int port, const char* clientId,
                 const char* rootCA, const char* cert, const char* privateKey,
                 const char* pubTopic = "greenpulse/sensors",
