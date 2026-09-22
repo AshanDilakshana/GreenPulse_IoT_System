@@ -48,7 +48,7 @@ const analyzePlantData = async (sensorData) => {
     // Initialize Gemini Model
     const model = new ChatGoogleGenerativeAI({
       model: "gemini-3.5-flash",
-      maxOutputTokens: 512,
+      maxOutputTokens: 2048,
       temperature: 0.2, // Lower temperature for more consistent JSON structure
       apiKey: process.env.AI_API_KEY,
     });
@@ -64,9 +64,9 @@ Based on the input, you MUST apply the following logic and output a JSON respons
 1. SMART WATERING LOGIC:
    - If Soil Moisture is LOW:
        - Step 1: Check the Weather Forecast. 
-       - Step 2: If Rain is predicted, DELAY watering. Generate an email notification warning the user that soil is dry but watering is delayed due to expected rain. Output pump_status as "OFF".
+       - Step 2: If Rain is predicted, DELAY watering. Generate an email notification warning the user that soil is dry but watering is delayed due to expected rain. Output pump_status as "OFF" and target_moisture as 0.
        - Step 3: If NO Rain is predicted, generate an email warning the user to water the plant.
-       - Step 4 (Fallback & Auto-Off): If the user has ignored the warning (soil remains dry after the delay period), output pump_status as "ON". If the water pump is currently ON and the Soil Moisture reaches the OPTIMAL level, immediately output pump_status as "OFF" to prevent overwatering.
+       - Step 4 (Fallback & Auto-Off): If the user has ignored the warning (soil remains dry after the delay period), output pump_status as "ON". IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. If pump_status is "OFF", set "target_moisture" to 0.
 
 2. TIME-BASED LIGHTING LOGIC:
    - If Light Level is LOW:
@@ -87,6 +87,7 @@ OUTPUT FORMAT:
 Return ONLY a valid JSON object with the following keys: 
 {
   "pump_status": "ON" | "OFF" | "DELAYED",
+  "target_moisture": number,
   "smart_lamp_status": "ON" | "OFF",
   "indicator_color": "GREEN" | "YELLOW" | "RED",
   "email_alert_body": "string",
@@ -114,10 +115,12 @@ Return ONLY a valid JSON object with the following keys:
     ]);
     
     let resultText = res.content.trim();
-    if(resultText.startsWith("\`\`\`json")) {
-        resultText = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    // Forcefully extract JSON object using regex to ignore any surrounding conversational text
+    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      resultText = jsonMatch[0];
     }
-
+    
     const jsonResult = JSON.parse(resultText);
 
     // If there is an email alert body that isn't just empty or placeholder, send it

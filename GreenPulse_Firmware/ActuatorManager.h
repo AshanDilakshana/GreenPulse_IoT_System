@@ -17,11 +17,26 @@ private:
     unsigned long _pumpStartTime;
     bool _blinkState;
     String _lastColorHex;
+    
+    // Buzzer state variables
+    bool _isMotionActive;
+    unsigned long _lastBuzzerToggle;
+    bool _buzzerState;
+    int _postMotionBeepsRemaining;
+    
+    // Edge Computing Auto-Off
+    int _targetMoisture;
+
+    // Pump Buzzer State
+    bool _pumpBeepActive;
+    unsigned long _pumpBeepStartTime;
 
 public:
     ActuatorManager(uint8_t redPin, uint8_t greenPin, uint8_t bluePin, uint8_t pumpPin, uint8_t lampPin, uint8_t buzzerPin)
         : _redPin(redPin), _greenPin(greenPin), _bluePin(bluePin), _pumpPin(pumpPin), _lampPin(lampPin), _buzzerPin(buzzerPin),
-          _isPumpActive(false), _lastBlinkTime(0), _pumpStartTime(0), _blinkState(false), _lastColorHex("#000000") {}
+          _isPumpActive(false), _lastBlinkTime(0), _pumpStartTime(0), _blinkState(false), _lastColorHex("#000000"),
+          _isMotionActive(false), _lastBuzzerToggle(0), _buzzerState(false), _postMotionBeepsRemaining(0),
+          _targetMoisture(0), _pumpBeepActive(false), _pumpBeepStartTime(0) {}
 
     void begin() {
         pinMode(_redPin, OUTPUT);
@@ -92,7 +107,7 @@ public:
         }
     }
 
-    void setPump(bool state) {
+    void setPump(bool state, int targetMoisture = 0) {
         if (_isPumpActive != state) {
             _isPumpActive = state;
             // Active-LOW relay logic: state=true means LOW (ON), state=false means HIGH (OFF)
@@ -104,10 +119,21 @@ public:
                 _blinkState = true;
                 _lastBlinkTime = millis();
                 _pumpStartTime = millis();
+                _targetMoisture = targetMoisture; // Store target for Edge Computing
+                if (_targetMoisture > 0) {
+                    Serial.printf("[Actuator] Auto-Off target moisture set to: %d%%\n", _targetMoisture);
+                }
                 setColorHex("#FF0000", false);
             } else {
                 // Pump turned off, restore the last known system color
+                _targetMoisture = 0;
                 setColorHex(_lastColorHex.c_str(), false);
+                
+                // Ensure pump beep is turned off
+                if (_pumpBeepActive) {
+                    _pumpBeepActive = false;
+                    if (!_isMotionActive && _postMotionBeepsRemaining == 0) digitalWrite(_buzzerPin, LOW);
+                }
             }
         }
     }
@@ -119,25 +145,80 @@ public:
     }
 
     void loop() {
+        unsigned long now = millis();
+        
+        // Pump safety and Blinking logic
         if (_isPumpActive) {
-            unsigned long now = millis();
-            
             // Pulse Watering Safety Timeout (Max 15 seconds)
             if (now - _pumpStartTime >= 15000) {
                 Serial.println("[Actuator] 15s hardware timeout reached. Auto-stopping pump (Pulse watering).");
                 setPump(false);
-                return; // Exit loop after turning off
-            }
-
-            // Blinking logic
-            if (now - _lastBlinkTime >= 500) { // Toggle every 500ms
-                _lastBlinkTime = now;
-                _blinkState = !_blinkState;
-                if (_blinkState) {
-                    setColorHex("#FF0000", false); // Red ON
-                } else {
-                    setColorHex("#000000", false); // OFF
+            } else {
+                // Blinking logic
+                if (now - _lastBlinkTime >= 500) { // Toggle every 500ms
+                    _lastBlinkTime = now;
+                    _blinkState = !_blinkState;
+                    if (_blinkState) {
+                        setColorHex("#FF0000", false); // Red ON
+                        
+                        // Start a very short, non-annoying beep (50ms)
+                        if (!_isMotionActive) { // Don't conflict with PIR buzzer
+                            digitalWrite(_buzzerPin, HIGH);
+                            _pumpBeepActive = true;
+                            _pumpBeepStartTime = now;
+                        }
+                    } else {
+                        setColorHex("#000000", false); // OFF
+                    }
                 }
+            }
+        }
+        
+        // Turn off the short pump beep after 50ms non-blockingly
+        if (_pumpBeepActive && (now - _pumpBeepStartTime >= 50)) {
+            _pumpBeepActive = false;
+            if (!_isMotionActive && _postMotionBeepsRemaining == 0) {
+                digitalWrite(_buzzerPin, LOW);
+            }
+        }
+        
+        // Non-blocking Buzzer Pattern for Motion Detection
+        if (_isMotionActive) {
+            if (now - _lastBuzzerToggle >= 250) { // Beep toggle every 250ms (fast pattern)
+                _lastBuzzerToggle = now;
+                _buzzerState = !_buzzerState;
+                digitalWrite(_buzzerPin, _buzzerState ? HIGH : LOW);
+            }
+        } else if (_postMotionBeepsRemaining > 0) {
+            // Post-motion double beep (same pattern speed as motion)
+            if (now - _lastBuzzerToggle >= 250) {
+                _lastBuzzerToggle = now;
+                _buzzerState = !_buzzerState;
+                digitalWrite(_buzzerPin, _buzzerState ? HIGH : LOW);
+                _postMotionBeepsRemaining--;
+                
+                // Ensure it stays OFF when finished
+                if (_postMotionBeepsRemaining == 0) {
+                    digitalWrite(_buzzerPin, LOW);
+                    _buzzerState = false;
+                }
+            }
+        }
+    }
+
+    // Call this to update motion state for buzzer
+    void setMotionState(bool state) {
+        if (_isMotionActive != state) {
+            _isMotionActive = state;
+            if (!state) {
+                // Turn off continuous buzzer and start 2-beep exit pattern (4 toggles)
+                _postMotionBeepsRemaining = 4;
+                _buzzerState = false; 
+                digitalWrite(_buzzerPin, LOW);
+                _lastBuzzerToggle = millis(); // start immediately
+            } else {
+                // Motion started again, cancel any exit beeps
+                _postMotionBeepsRemaining = 0;
             }
         }
     }
@@ -164,6 +245,18 @@ public:
             delay(50); // Small 50ms blocking delay is acceptable for alert
             digitalWrite(_buzzerPin, LOW);
             delay(50);
+        }
+    }
+
+    // --- Edge Computing Check ---
+    // Called continuously from main loop to auto-stop pump instantly when target reached
+    void checkAutoOff(int currentMoisture) {
+        if (_isPumpActive && _targetMoisture > 0) {
+            if (currentMoisture >= _targetMoisture) {
+                Serial.printf("[Actuator] Target moisture (%d%%) reached. Edge computing auto-off triggered!\n", _targetMoisture);
+                setPump(false);
+                setIndicatorColor("GREEN"); // Recover immediately
+            }
         }
     }
 };

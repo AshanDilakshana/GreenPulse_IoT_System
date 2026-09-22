@@ -102,17 +102,13 @@ void loop() {
   // Handle Actuator non-blocking tasks (like blinking LED)
   rgbLed.loop();
 
-  // Check for motion and alert if plant needs care (with 10-second cooldown to
-  // avoid continuous beeping)
-  static unsigned long lastAlertTime = 0;
-  if (sensors.hasMotion() && rgbLed.needsCare()) {
-    if (millis() - lastAlertTime > 10000) {
-      Serial.println(
-          "[Alert] Motion detected & Plant needs care! Triggering buzzer.");
-      rgbLed.triggerCareAlert();
-      lastAlertTime = millis();
-    }
-  }
+  // --- Edge Computing Auto-Off Check ---
+  // Constantly check if pump needs to be turned off based on AI target moisture
+  rgbLed.checkAutoOff(sensors.getLastData().soilMoisture);
+
+  // --- PIR Motion Buzzer Logic ---
+  // Buzzer plays a pattern ONLY if motion is detected AND AI says the plant needs care (Yellow or Red LED)
+  rgbLed.setMotionState(sensors.hasMotion() && rgbLed.needsCare());
 
   static SensorData lastData; // Cache for immediate UI updates
 

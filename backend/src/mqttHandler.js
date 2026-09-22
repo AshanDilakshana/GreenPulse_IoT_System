@@ -12,7 +12,7 @@ const setupMQTT = () => {
   }
 
   // Paths to AWS IoT Core Certificates
-  const keysDir = path.join(__dirname, '../../../keys'); 
+  const keysDir = path.join(__dirname, '../../keys'); 
   const keyPath = path.join(keysDir, 'a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-private.pem.key');
   const certPath = path.join(keysDir, 'a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-certificate.pem.crt');
   const caPath = path.join(keysDir, 'AmazonRootCA1.pem');
@@ -24,15 +24,19 @@ const setupMQTT = () => {
 
   // If the AWS certs exist, add them to options for mTLS
   if (fs.existsSync(keyPath) && fs.existsSync(certPath) && fs.existsSync(caPath)) {
+    console.log('[MQTT] Successfully loaded AWS mTLS certificates.');
     options.key = fs.readFileSync(keyPath);
     options.cert = fs.readFileSync(certPath);
     options.ca = fs.readFileSync(caPath);
+    options.rejectUnauthorized = true;
   } else {
+    console.log('[MQTT] Certificates not found. Falling back to username/password.');
     // Fallback to standard username/password MQTT (e.g. HiveMQ)
     options.username = process.env.MQTT_USER;
     options.password = process.env.MQTT_PASSWORD;
   }
 
+  console.log('[MQTT] Connecting to:', process.env.MQTT_BROKER_URL);
   const client = mqtt.connect(process.env.MQTT_BROKER_URL, options);
 
   client.on('connect', () => {
@@ -54,9 +58,9 @@ const setupMQTT = () => {
         // 1. Log to Database (Every 2 seconds - Live Data)
         await saveSensorData(sensorData);
 
-        // Throttle AI Agent calls to once every 20 seconds
+        // Throttle AI Agent calls to once every 60 seconds (prevent rate limits)
         const now = Date.now();
-        if (now - lastAITime >= 20000) {
+        if (now - lastAITime >= 60000) {
           lastAITime = now;
           
           // 2. Analyze with AI Agent

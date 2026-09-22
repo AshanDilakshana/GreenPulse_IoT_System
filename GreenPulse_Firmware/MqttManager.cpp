@@ -33,7 +33,11 @@ void MqttManager::onMessage(char* topic, byte* payload, unsigned int length) {
         }
         if (doc.containsKey("pump_status")) {
             const char* pumpStatus = doc["pump_status"];
-            _actuator->setPump(String(pumpStatus) == "ON");
+            int targetMoisture = 0;
+            if (doc.containsKey("target_moisture")) {
+                targetMoisture = doc["target_moisture"].as<int>();
+            }
+            _actuator->setPump(String(pumpStatus) == "ON", targetMoisture);
         }
         if (doc.containsKey("smart_lamp_status")) {
             const char* lampStatus = doc["smart_lamp_status"];
