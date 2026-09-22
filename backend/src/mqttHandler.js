@@ -48,6 +48,7 @@ const setupMQTT = () => {
   });
 
   let lastAITime = 0;
+  let lastDbSaveTime = 0;
 
   client.on('message', async (topic, message) => {
     if (topic === 'greenpulse/sensors') {
@@ -55,11 +56,16 @@ const setupMQTT = () => {
         console.log('Received sensor data:', message.toString());
         const sensorData = JSON.parse(message.toString());
         
-        // 1. Log to Database (Every 2 seconds - Live Data)
-        await saveSensorData(sensorData);
+        const now = Date.now();
+        
+        // 1. Log to Database (Every 10 minutes - 600000 ms)
+        if (now - lastDbSaveTime >= 600000) {
+          lastDbSaveTime = now;
+          await saveSensorData(sensorData);
+          console.log('[DB] Saved sensor data to MongoDB');
+        }
 
         // Throttle AI Agent calls to once every 60 seconds (prevent rate limits)
-        const now = Date.now();
         if (now - lastAITime >= 60000) {
           lastAITime = now;
           

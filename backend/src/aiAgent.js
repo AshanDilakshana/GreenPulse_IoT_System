@@ -4,6 +4,8 @@ const { SystemMessage, HumanMessage } = require('@langchain/core/messages');
 const { sendAlertEmail } = require('./mailer');
 const { saveWeatherData } = require('./db');
 
+let criticalConsecutiveCount = 0;
+
 const getWeatherData = async () => {
   try {
     if (!process.env.WEATHER_API_KEY || !process.env.LOCATION) {
@@ -45,9 +47,16 @@ const analyzePlantData = async (sensorData) => {
     const now = new Date();
     const currentTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
     
+    // Update critical count
+    if (sensorData.soilMoisture !== undefined && sensorData.soilMoisture < 20) {
+      criticalConsecutiveCount++;
+    } else {
+      criticalConsecutiveCount = 0;
+    }
+    
     // Initialize Gemini Model
     const model = new ChatGoogleGenerativeAI({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       maxOutputTokens: 2048,
       temperature: 0.2, // Lower temperature for more consistent JSON structure
       apiKey: process.env.AI_API_KEY,
@@ -57,22 +66,25 @@ const analyzePlantData = async (sensorData) => {
 
 You will receive input data in JSON format containing:
 - Sensor Data: Soil Moisture (%), Temperature (°C), Humidity (%), CO2 levels (ppm), and Light/Lux levels.
-- Context: Current Time (24-hour format) and Weather Forecast (Rain probability for the next 12 hours).
+- Context: Current Time (24-hour format), Weather Forecast (Rain probability for the next 12 hours), and Consecutive Critical Count (${criticalConsecutiveCount} times the soil has been critically dry).
 
 Based on the input, you MUST apply the following logic and output a JSON response with your decisions:
 
 1. SMART WATERING LOGIC:
-   - If Soil Moisture is LOW:
-       - Step 1: Check the Weather Forecast. 
-       - Step 2: If Rain is predicted, DELAY watering. Generate an email notification warning the user that soil is dry but watering is delayed due to expected rain. Output pump_status as "OFF" and target_moisture as 0.
-       - Step 3: If NO Rain is predicted, generate an email warning the user to water the plant.
-       - Step 4 (Fallback & Auto-Off): If the user has ignored the warning (soil remains dry after the delay period), output pump_status as "ON". IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. If pump_status is "OFF", set "target_moisture" to 0.
+   - Check the Weather Forecast. If Rain is predicted, strictly DELAY watering (output pump_status as "OFF") regardless of soil moisture, and inform the user.
+   - If NO Rain is predicted:
+       - If Soil Moisture is between 20% and 40% (Warning Level): Output indicator_color as "YELLOW" and pump_status as "OFF". Generate an email warning the user to water the plant soon.
+       - If Soil Moisture is BELOW 20% (Critical Level): 
+            - If Consecutive Critical Count is 1: This is the first warning. Output indicator_color as "RED" and pump_status as "OFF". Generate an URGENT email warning.
+            - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached.
+       - If Soil Moisture is above 40%: Output indicator_color as "GREEN" and pump_status as "OFF". Set "target_moisture" to 0.
 
 2. TIME-BASED LIGHTING LOGIC:
    - If Light Level is LOW:
        - Check the Current Time.
        - If it is DAYTIME (06:00 to 18:00): Output smart_lamp_status as "ON" to support photosynthesis.
        - If it is NIGHTTIME (after 18:00 to 05:59): Output smart_lamp_status as "OFF" to respect the plant's natural dark/resting period.
+   - If Light Level is ADEQUATE or HIGH (sufficient natural light): Output smart_lamp_status as "OFF".
 
 3. AIR QUALITY & TEMPERATURE LOGIC:
    - If CO2 levels are HIGH or Temperature is detrimental to the plant, generate a practical action item (e.g., "Please open a window for better air circulation").
