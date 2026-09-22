@@ -102,15 +102,15 @@ void loop() {
   // Handle Actuator non-blocking tasks (like blinking LED)
   rgbLed.loop();
 
+  static SensorData lastData; // Cache for immediate UI updates
+
   // --- Edge Computing Auto-Off Check ---
   // Constantly check if pump needs to be turned off based on AI target moisture
-  rgbLed.checkAutoOff(sensors.getLastData().soilMoisture);
+  rgbLed.checkAutoOff(lastData.soilMoisture);
 
   // --- PIR Motion Buzzer Logic ---
   // Buzzer plays a pattern ONLY if motion is detected AND AI says the plant needs care (Yellow or Red LED)
   rgbLed.setMotionState(sensors.hasMotion() && rgbLed.needsCare());
-
-  static SensorData lastData; // Cache for immediate UI updates
 
   // --- Manual Display Toggle Logic ---
   static bool manualMode = false;
