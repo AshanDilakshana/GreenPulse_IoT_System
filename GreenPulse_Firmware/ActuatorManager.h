@@ -10,6 +10,7 @@ private:
     uint8_t _bluePin;
     uint8_t _pumpPin;
     uint8_t _lampPin;
+    uint8_t _buzzerPin;
 
     bool _isPumpActive;
     unsigned long _lastBlinkTime;
@@ -18,16 +19,24 @@ private:
     String _lastColorHex;
 
 public:
-    ActuatorManager(uint8_t redPin, uint8_t greenPin, uint8_t bluePin, uint8_t pumpPin, uint8_t lampPin)
-        : _redPin(redPin), _greenPin(greenPin), _bluePin(bluePin), _pumpPin(pumpPin), _lampPin(lampPin),
+    ActuatorManager(uint8_t redPin, uint8_t greenPin, uint8_t bluePin, uint8_t pumpPin, uint8_t lampPin, uint8_t buzzerPin)
+        : _redPin(redPin), _greenPin(greenPin), _bluePin(bluePin), _pumpPin(pumpPin), _lampPin(lampPin), _buzzerPin(buzzerPin),
           _isPumpActive(false), _lastBlinkTime(0), _pumpStartTime(0), _blinkState(false), _lastColorHex("#000000") {}
 
     void begin() {
         pinMode(_redPin, OUTPUT);
         pinMode(_greenPin, OUTPUT);
         pinMode(_bluePin, OUTPUT);
+        
+        // Write HIGH before pinMode to prevent active-low relays from flickering ON during boot
+        digitalWrite(_pumpPin, HIGH);
+        digitalWrite(_lampPin, HIGH);
         pinMode(_pumpPin, OUTPUT);
         pinMode(_lampPin, OUTPUT);
+        
+        pinMode(_buzzerPin, OUTPUT);
+        digitalWrite(_buzzerPin, LOW); // Buzzer normally OFF
+
         turnOff();
     }
 
@@ -86,7 +95,8 @@ public:
     void setPump(bool state) {
         if (_isPumpActive != state) {
             _isPumpActive = state;
-            digitalWrite(_pumpPin, state ? HIGH : LOW);
+            // Active-LOW relay logic: state=true means LOW (ON), state=false means HIGH (OFF)
+            digitalWrite(_pumpPin, state ? LOW : HIGH);
             Serial.printf("[Actuator] Pump is now %s\n", state ? "ON" : "OFF");
             
             if (state) {
@@ -103,7 +113,8 @@ public:
     }
 
     void setLamp(bool state) {
-        digitalWrite(_lampPin, state ? HIGH : LOW);
+        // Active-LOW relay logic
+        digitalWrite(_lampPin, state ? LOW : HIGH);
         Serial.printf("[Actuator] Smart Lamp is now %s\n", state ? "ON" : "OFF");
     }
 
@@ -133,10 +144,27 @@ public:
 
     void turnOff() {
         setColor(0, 0, 0);
-        digitalWrite(_pumpPin, LOW);
-        digitalWrite(_lampPin, LOW);
+        // Active-LOW relays turn OFF when receiving HIGH signal
+        digitalWrite(_pumpPin, HIGH);
+        digitalWrite(_lampPin, HIGH);
+        digitalWrite(_buzzerPin, LOW);
         _isPumpActive = false;
         _lastColorHex = "#000000";
+    }
+
+    // Check if LLM decided the plant needs care (Red or Yellow indicator)
+    bool needsCare() {
+        return (_lastColorHex == "#FF0000" || _lastColorHex == "#FFFF00");
+    }
+
+    // Trigger a fast triple beep alert
+    void triggerCareAlert() {
+        for (int i = 0; i < 3; i++) {
+            digitalWrite(_buzzerPin, HIGH);
+            delay(50); // Small 50ms blocking delay is acceptable for alert
+            digitalWrite(_buzzerPin, LOW);
+            delay(50);
+        }
     }
 };
 
