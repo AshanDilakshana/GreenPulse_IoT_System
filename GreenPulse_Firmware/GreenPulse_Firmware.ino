@@ -110,7 +110,8 @@ void loop() {
 
   // --- PIR Motion Buzzer Logic ---
   // Buzzer plays a pattern ONLY if motion is detected AND AI says the plant needs care (Yellow or Red LED)
-  rgbLed.setMotionState(sensors.hasMotion() && rgbLed.needsCare());
+  // BUT do not trigger if the water pump is ON to avoid buzzer conflicts.
+  rgbLed.setMotionState(sensors.hasMotion() && rgbLed.needsCare() && !rgbLed.isPumpActive());
 
   // --- Manual Display Toggle Logic ---
   static bool manualMode = false;

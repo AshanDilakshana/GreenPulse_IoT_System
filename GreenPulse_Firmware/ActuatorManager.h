@@ -259,6 +259,11 @@ public:
             }
         }
     }
+
+    // Public getter to check if the pump is currently running
+    bool isPumpActive() const {
+        return _isPumpActive;
+    }
 };
 
 #endif

@@ -15,7 +15,7 @@ const getWeatherData = async () => {
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${process.env.LOCATION}&appid=${process.env.WEATHER_API_KEY}&units=metric`;
     const response = await axios.get(url);
     const data = response.data;
-    
+
     // Calculate rain probability for the next 12 hours (next 4 forecast slots, each is 3 hours)
     let maxPop = 0;
     if (data.list && data.list.length >= 4) {
@@ -42,18 +42,18 @@ const analyzePlantData = async (sensorData) => {
   try {
     const weatherForecast = await getWeatherData();
     await saveWeatherData(weatherForecast); // Save weather history for historical agent
-    
+
     // Get Current Time in 24-hour format
     const now = new Date();
     const currentTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-    
+
     // Update critical count
     if (sensorData.soilMoisture !== undefined && sensorData.soilMoisture < 20) {
       criticalConsecutiveCount++;
     } else {
       criticalConsecutiveCount = 0;
     }
-    
+
     // Initialize Gemini Model
     const model = new ChatGoogleGenerativeAI({
       model: "gemini-3.1-flash-lite",
@@ -125,20 +125,20 @@ Return ONLY a valid JSON object with the following keys:
       new SystemMessage(systemPrompt),
       new HumanMessage(userPrompt)
     ]);
-    
+
     let resultText = res.content.trim();
     // Forcefully extract JSON object using regex to ignore any surrounding conversational text
     const jsonMatch = resultText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       resultText = jsonMatch[0];
     }
-    
+
     const jsonResult = JSON.parse(resultText);
 
     // If there is an email alert body that isn't just empty or placeholder, send it
     if (jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
       await sendAlertEmail(
-        "GreenPulse: Plant Care Notification", 
+        "GreenPulse: Plant Care Notification",
         `${jsonResult.email_alert_body}\n\nQuote: ${jsonResult.dashboard_care_quote}\nSensor Data: ${JSON.stringify(sensorData, null, 2)}`
       );
     }
@@ -150,6 +150,10 @@ Return ONLY a valid JSON object with the following keys:
     return null;
   }
 };
+
+
+
+
 
 const generateHistoricalSummary = async (aggregatedSensorData, pastWeatherData) => {
   if (!process.env.AI_API_KEY) {
@@ -196,8 +200,8 @@ Please analyze this and provide the required JSON output.`;
     ]);
 
     let resultText = res.content.trim();
-    if(resultText.startsWith("\`\`\`json")) {
-        resultText = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    if (resultText.startsWith("\`\`\`json")) {
+      resultText = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     }
 
     return JSON.parse(resultText);
