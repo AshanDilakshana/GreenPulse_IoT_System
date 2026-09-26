@@ -46,14 +46,14 @@ client.on('message', async (msg) => {
   
   let formattedNumber = myPhone.replace('+', '').trim();
   const rawNumber = formattedNumber.replace('@c.us', '');
-  const testLid = '81432647082238'; // The user's secondary test number ID
+  const ownerLid = process.env.WHATSAPP_OWNER_LID || ''; // The owner's Linked ID (LID)
 
   // Get real contact info (fixes @lid hidden numbers if possible)
   const contact = await msg.getContact();
   const senderNumber = (contact && contact.number) ? contact.number : msg.from;
 
-  // STRICT SECURITY CHECK: Allow the authorized phone OR the specific test @lid
-  if (!senderNumber.includes(rawNumber) && !senderNumber.includes(testLid)) {
+  // STRICT SECURITY CHECK: Allow the authorized phone OR the owner's specific @lid
+  if (!senderNumber.includes(rawNumber) && !senderNumber.includes(ownerLid)) {
     // Silently ignore all other messages
     return;
   }
