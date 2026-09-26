@@ -45,6 +45,10 @@ const setupMQTT = () => {
       if (err) console.error('Subscription error:', err);
       else console.log('Subscribed to greenpulse/sensors');
     });
+    client.subscribe('greenpulse/trigger_summary', (err) => {
+      if (err) console.error('Subscription error for trigger_summary:', err);
+      else console.log('Subscribed to greenpulse/trigger_summary');
+    });
   });
 
   let lastAITime = 0;
@@ -81,6 +85,29 @@ const setupMQTT = () => {
         
       } catch (error) {
         console.error('Error processing MQTT message:', error);
+      }
+    } else if (topic === 'greenpulse/trigger_summary') {
+      try {
+        console.log('Manual AI Summary Trigger received via MQTT.');
+        const { getAggregatedPastData, getPastWeatherData } = require('./db');
+        const { generateHistoricalSummary } = require('./aiAgent');
+        
+        const aggregatedData = await getAggregatedPastData(6);
+        const pastWeather = await getPastWeatherData(6);
+        
+        if (!aggregatedData || aggregatedData.length === 0) {
+          console.log("No historical data found.");
+          return;
+        }
+
+        const summary = await generateHistoricalSummary(aggregatedData, pastWeather);
+        
+        if (summary) {
+          client.publish('greenpulse/summary', JSON.stringify(summary));
+          console.log('Published historical summary to greenpulse/summary');
+        }
+      } catch (error) {
+        console.error('Error processing trigger_summary:', error);
       }
     }
   });

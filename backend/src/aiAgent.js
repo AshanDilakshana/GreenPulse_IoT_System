@@ -2,6 +2,7 @@ const axios = require('axios');
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { SystemMessage, HumanMessage } = require('@langchain/core/messages');
 const { sendAlertEmail } = require('./mailer');
+const { sendWhatsAppAlert } = require('./whatsapp');
 const { saveWeatherData } = require('./db');
 
 let criticalConsecutiveCount = 0;
@@ -56,7 +57,7 @@ const analyzePlantData = async (sensorData) => {
 
     // Initialize Gemini Model
     const model = new ChatGoogleGenerativeAI({
-      model: "gemini-3.1-flash-lite",
+      model: process.env.AI_MODEL || "gemini-1.5-flash",
       maxOutputTokens: 2048,
       temperature: 0.2, // Lower temperature for more consistent JSON structure
       apiKey: process.env.AI_API_KEY,
@@ -76,7 +77,7 @@ Based on the input, you MUST apply the following logic and output a JSON respons
        - If Soil Moisture is between 20% and 40% (Warning Level): Output indicator_color as "YELLOW" and pump_status as "OFF". Generate an email warning the user to water the plant soon.
        - If Soil Moisture is BELOW 20% (Critical Level): 
             - If Consecutive Critical Count is 1: This is the first warning. Output indicator_color as "RED" and pump_status as "OFF". Generate an URGENT email warning.
-            - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached.
+            - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. ALSO generate an email informing the user that the water pump was automatically activated.
        - If Soil Moisture is above 40%: Output indicator_color as "GREEN" and pump_status as "OFF". Set "target_moisture" to 0.
 
 2. TIME-BASED LIGHTING LOGIC:
@@ -87,7 +88,7 @@ Based on the input, you MUST apply the following logic and output a JSON respons
    - If Light Level is ADEQUATE or HIGH (sufficient natural light): Output smart_lamp_status as "OFF".
 
 3. AIR QUALITY & TEMPERATURE LOGIC:
-   - If CO2 levels are HIGH or Temperature is detrimental to the plant, generate a practical action item (e.g., "Please open a window for better air circulation").
+   - If CO2 levels are HIGH (>1000 ppm) or Temperature is extreme (>30°C or <15°C), you MUST generate an email alert warning the user and provide a practical action item (e.g., "Please open a window for better air circulation").
 
 4. CARE QUOTE GENERATION:
    - Generate a short, beautiful, literature-style quote (1-2 sentences) reflecting the plant's current state (e.g., its thirst, the warmth of the room, or the air quality).
@@ -137,10 +138,15 @@ Return ONLY a valid JSON object with the following keys:
 
     // If there is an email alert body that isn't just empty or placeholder, send it
     if (jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
+      const alertContent = `${jsonResult.email_alert_body}\n\nQuote: ${jsonResult.dashboard_care_quote}`;
+      
       await sendAlertEmail(
         "GreenPulse: Plant Care Notification",
-        `${jsonResult.email_alert_body}\n\nQuote: ${jsonResult.dashboard_care_quote}\nSensor Data: ${JSON.stringify(sensorData, null, 2)}`
+        alertContent,
+        sensorData
       );
+
+      await sendWhatsAppAlert(alertContent, sensorData);
     }
 
     return jsonResult;
@@ -163,7 +169,7 @@ const generateHistoricalSummary = async (aggregatedSensorData, pastWeatherData) 
 
   try {
     const model = new ChatGoogleGenerativeAI({
-      model: "gemini-3.5-flash",
+      model: process.env.AI_MODEL || "gemini-1.5-flash",
       maxOutputTokens: 1024,
       temperature: 0.3,
       apiKey: process.env.AI_API_KEY,
