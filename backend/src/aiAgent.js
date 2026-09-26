@@ -218,4 +218,42 @@ Please analyze this and provide the required JSON output.`;
   }
 };
 
-module.exports = { analyzePlantData, generateHistoricalSummary };
+const parseWhatsAppCommand = async (messageText) => {
+  if (!process.env.AI_API_KEY) return null;
+  try {
+    const model = new ChatGoogleGenerativeAI({
+      model: process.env.AI_MODEL || "gemini-1.5-flash",
+      maxOutputTokens: 512,
+      temperature: 0.1,
+      apiKey: process.env.AI_API_KEY,
+    });
+    
+    const systemPrompt = `You are GreenPulse AI, a smart indoor plant assistant. The user is messaging you on WhatsApp to control their plant's water pump.
+Determine if they want to turn the water pump ON or OFF.
+If they specify a time, extract it (e.g. "22:30"). If they want it immediately, set time to "NOW".
+If they say something conversational (e.g. "hi", "how are you", "is my plant okay"), reply naturally as an AI assistant.
+Return ONLY a valid JSON object matching this exact format:
+{
+  "intent": "TURN_ON_PUMP" | "TURN_OFF_PUMP" | "CONVERSATIONAL" | "UNKNOWN",
+  "time": "NOW" | "HH:MM",
+  "replyMessage": "A friendly confirmation or conversational reply to send back to the user via WhatsApp. You can use Emojis. Reply in the same language the user spoke (Sinhala/Singlish/English)."
+}`;
+
+    const userPrompt = `User Message: "${messageText}"`;
+    const res = await model.invoke([
+      new SystemMessage(systemPrompt),
+      new HumanMessage(userPrompt)
+    ]);
+    
+    let resultText = res.content.trim();
+    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) resultText = jsonMatch[0];
+    
+    return JSON.parse(resultText);
+  } catch (e) {
+    console.error("AI NLP Error:", e);
+    return null;
+  }
+};
+
+module.exports = { analyzePlantData, generateHistoricalSummary, parseWhatsAppCommand };

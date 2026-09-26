@@ -22,6 +22,10 @@ client.on('qr', (qr) => {
   qrcode.generate(qr, { small: true });
 });
 
+client.on('authenticated', () => {
+  console.log('⏳ WhatsApp Client is authenticated! Loading chats (this may take a few seconds)...');
+});
+
 client.on('ready', () => {
   console.log('✅ WhatsApp Client is fully ready and linked!');
   isClientReady = true;
@@ -32,17 +36,93 @@ client.on('disconnected', (reason) => {
   isClientReady = false;
 });
 
+// === INCOMING MESSAGE LISTENER (2-WAY CONVERSATIONAL AI) ===
+client.on('message', async (msg) => {
+  const { parseWhatsAppCommand } = require('./aiAgent');
+  const { publishMQTT } = require('./mqttHandler');
+
+  const myPhone = process.env.WHATSAPP_PHONE;
+  if (!myPhone) return;
+  
+  let formattedNumber = myPhone.replace('+', '').trim();
+  const rawNumber = formattedNumber.replace('@c.us', '');
+  const testLid = '81432647082238'; // The user's secondary test number ID
+
+  // Get real contact info (fixes @lid hidden numbers if possible)
+  const contact = await msg.getContact();
+  const senderNumber = (contact && contact.number) ? contact.number : msg.from;
+
+  // STRICT SECURITY CHECK: Allow the authorized phone OR the specific test @lid
+  if (!senderNumber.includes(rawNumber) && !senderNumber.includes(testLid)) {
+    // Silently ignore all other messages
+    return;
+  }
+
+  if (!msg.body || msg.body.trim() === '') {
+    // Ignore empty sync messages to save AI quota
+    return;
+  }
+
+  console.log(`[WhatsApp] Received authorized message: "${msg.body}"`);
+
+  // Parse the message using Gemini AI
+  const aiCommand = await parseWhatsAppCommand(msg.body);
+  if (!aiCommand) return;
+
+  console.log(`[WhatsApp AI Parser] Intent: ${aiCommand.intent}, Time: ${aiCommand.time}`);
+
+  // Send the AI's reply back to the user
+  if (aiCommand.replyMessage) {
+    await client.sendMessage(msg.from, aiCommand.replyMessage);
+  }
+
+  // Hardware Command Logic
+  if (aiCommand.intent === 'TURN_ON_PUMP' || aiCommand.intent === 'TURN_OFF_PUMP') {
+    const pumpStatus = aiCommand.intent === 'TURN_ON_PUMP' ? 'ON' : 'OFF';
+    const commandPayload = JSON.stringify({ pump_status: pumpStatus });
+
+    if (aiCommand.time === 'NOW') {
+      publishMQTT('greenpulse/commands', commandPayload);
+    } else {
+      // Very basic time-scheduling logic (e.g. HH:MM for today)
+      // For a real production app, use node-schedule or agenda
+      try {
+        const [targetHour, targetMinute] = aiCommand.time.split(':').map(Number);
+        const now = new Date();
+        const targetTime = new Date();
+        targetTime.setHours(targetHour, targetMinute, 0, 0);
+
+        // If time has already passed today, assume tomorrow
+        if (targetTime < now) {
+          targetTime.setDate(targetTime.getDate() + 1);
+        }
+
+        const msDelay = targetTime.getTime() - now.getTime();
+        console.log(`[WhatsApp] Scheduling pump ${pumpStatus} in ${msDelay}ms`);
+        
+        setTimeout(() => {
+          publishMQTT('greenpulse/commands', commandPayload);
+          client.sendMessage(msg.from, `🔔 (Scheduled Task) Water pump is now ${pumpStatus}!`);
+        }, msDelay);
+
+      } catch (e) {
+        console.error("Error scheduling time:", e);
+      }
+    }
+  }
+});
+// ============================================================
+
 const fs = require('fs');
 const path = require('path');
 
 // Clean up orphan Puppeteer locks before starting
 const sessionPath = path.join(__dirname, '..', '.wwebjs_auth', 'session');
 const lockFile = path.join(sessionPath, 'SingletonLock');
-const cookieFile = path.join(sessionPath, 'SingletonCookie');
 
 try {
   if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
-  if (fs.existsSync(cookieFile)) fs.unlinkSync(cookieFile);
+  // DO NOT DELETE SingletonCookie, it contains the login session!
 } catch (e) {
   console.log("Could not clear locks, ignoring...");
 }

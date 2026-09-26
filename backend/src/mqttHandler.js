@@ -5,6 +5,8 @@ const { analyzePlantData } = require('./aiAgent');
 const fs = require('fs');
 const path = require('path');
 
+let globalMqttClient = null;
+
 const setupMQTT = () => {
   if (!process.env.MQTT_BROKER_URL) {
     console.warn("MQTT_BROKER_URL not set in .env. Skipping MQTT setup.");
@@ -38,6 +40,7 @@ const setupMQTT = () => {
 
   console.log('[MQTT] Connecting to:', process.env.MQTT_BROKER_URL);
   const client = mqtt.connect(process.env.MQTT_BROKER_URL, options);
+  globalMqttClient = client;
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker securely.');
@@ -117,4 +120,13 @@ const setupMQTT = () => {
   });
 };
 
-module.exports = { setupMQTT };
+const publishMQTT = (topic, message) => {
+  if (globalMqttClient) {
+    globalMqttClient.publish(topic, message);
+    console.log(`[MQTT] Published to ${topic}: ${message}`);
+  } else {
+    console.warn('[MQTT] Client not connected. Cannot publish.');
+  }
+};
+
+module.exports = { setupMQTT, publishMQTT };

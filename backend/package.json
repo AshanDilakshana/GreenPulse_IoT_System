@@ -18,6 +18,9 @@
     "express": "^5.2.1",
     "mongoose": "^9.9.4",
     "mqtt": "^5.15.2",
-    "nodemailer": "^9.1.1"
+    "nodemailer": "^9.1.1",
+    "qrcode-terminal": "^0.12.0",
+    "twilio": "^6.1.1",
+    "whatsapp-web.js": "^1.34.7"
   }
 }
