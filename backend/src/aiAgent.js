@@ -27,7 +27,10 @@ const getWeatherData = async () => {
       }
     }
     const rainProbability = (maxPop * 100).toFixed(0);
-    return `Rain probability for the next 12 hours: ${rainProbability}%`;
+    const currentTemp = data.list[0].main.temp;
+    const weatherCondition = data.list[0].weather[0].main;
+    
+    return `External Temp: ${currentTemp}°C, Condition: ${weatherCondition}, Rain probability for next 12 hours: ${rainProbability}%`;
   } catch (error) {
     console.error("Error fetching weather forecast:", error.message);
     return "Weather forecast unavailable.";
@@ -71,8 +74,12 @@ You will receive input data in JSON format containing:
 
 Based on the input, you MUST apply the following logic and output a JSON response with your decisions:
 
-1. SMART WATERING LOGIC:
-   - Check the Weather Forecast. If Rain is predicted, strictly DELAY watering (output pump_status as "OFF") regardless of soil moisture, and inform the user.
+1. TEMPERATURE SHOCK WARNING:
+   - Compare the indoor "Temperature (°C)" with the "External Temp" from the Weather Forecast.
+   - If the difference is large (e.g., > 8°C difference, such as AC cooling the room while it's hot outside), this causes Temperature Shock to the plant. You MUST include a warning in the email_alert_body like "Please move me slightly away from the window/AC".
+
+2. SMART WATERING & RAIN DELAY LOGIC:
+   - Check the Weather Forecast. If "Condition: Rain" is present or Rain probability is high, indoor humidity naturally increases. To prevent root rot, you MUST DELAY watering. Output pump_status as "DELAYED", indicator_color as "YELLOW", and inform the user in the email_alert_body about the rain delay.
    - If NO Rain is predicted:
        - If Soil Moisture is between 20% and 40% (Warning Level): Output indicator_color as "YELLOW" and pump_status as "OFF". Generate an email warning the user to water the plant soon.
        - If Soil Moisture is BELOW 20% (Critical Level): 
@@ -80,20 +87,20 @@ Based on the input, you MUST apply the following logic and output a JSON respons
             - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. ALSO generate an email informing the user that the water pump was automatically activated.
        - If Soil Moisture is above 40%: Output indicator_color as "GREEN" and pump_status as "OFF". Set "target_moisture" to 0.
 
-2. TIME-BASED LIGHTING LOGIC:
+3. TIME-BASED LIGHTING LOGIC:
    - If Light Level is LOW:
        - Check the Current Time.
        - If it is DAYTIME (06:00 to 18:00): Output smart_lamp_status as "ON" to support photosynthesis.
        - If it is NIGHTTIME (after 18:00 to 05:59): Output smart_lamp_status as "OFF" to respect the plant's natural dark/resting period.
    - If Light Level is ADEQUATE or HIGH (sufficient natural light): Output smart_lamp_status as "OFF".
 
-3. AIR QUALITY & TEMPERATURE LOGIC:
-   - If CO2 levels are HIGH (>1000 ppm) or Temperature is extreme (>30°C or <15°C), you MUST generate an email alert warning the user and provide a practical action item (e.g., "Please open a window for better air circulation").
+4. AIR QUALITY LOGIC:
+   - If CO2 levels are HIGH (>1000 ppm), generate an email alert warning the user to open a window for better air circulation.
 
-4. CARE QUOTE GENERATION:
-   - Generate a short, beautiful, literature-style quote (1-2 sentences) reflecting the plant's current state (e.g., its thirst, the warmth of the room, or the air quality).
+5. CARE QUOTE GENERATION:
+   - Generate a short, beautiful, literature-style quote (1-2 sentences) reflecting the plant's current state.
 
-5. INDICATOR STATUS:
+6. INDICATOR STATUS:
    - Determine the Care Urgency and output an indicator_color: "GREEN" (Good), "YELLOW" (Warning/Action Needed soon), or "RED" (Critical/Pump Activated).
 
 OUTPUT FORMAT:
@@ -256,4 +263,4 @@ Return ONLY a valid JSON object matching this exact format:
   }
 };
 
-module.exports = { analyzePlantData, generateHistoricalSummary, parseWhatsAppCommand };
+module.exports = { analyzePlantData, generateHistoricalSummary, parseWhatsAppCommand, getWeatherData };
