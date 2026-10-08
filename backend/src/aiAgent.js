@@ -95,7 +95,7 @@ Based on the input, you MUST apply the following logic and output a JSON respons
    - If Light Level is ADEQUATE or HIGH (sufficient natural light): Output smart_lamp_status as "OFF".
 
 4. AIR QUALITY LOGIC:
-   - If CO2 levels are HIGH (>1000 ppm), generate an email alert warning the user to open a window for better air circulation.
+   - If CO2 levels are HIGH (>1000 ppm), you MUST generate a creative email alert and dashboard_care_quote that humorously or poetically warns about the effects of high CO2 on BOTH the plant (e.g. risk of fungal diseases from trapped humidity) AND the human (e.g. headaches, tiredness). Tell them to open a window!
 
 5. CARE QUOTE GENERATION:
    - Generate a short, beautiful, literature-style quote (1-2 sentences) reflecting the plant's current state.

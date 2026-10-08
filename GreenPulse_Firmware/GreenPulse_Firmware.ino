@@ -22,6 +22,7 @@
 #include "MqttManager.h"
 #include "SensorManager.h"
 #include "WifiManager.h"
+#include "HistoryManager.h"
 #include "secrets.h"
 #include <Arduino.h>
 
@@ -52,6 +53,7 @@ ActuatorManager rgbLed(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE, PIN_PUMP,
                        PIN_LAMP, PIN_BUZZER);
 MqttManager mqtt(MQTT_BROKER, MQTT_PORT, MQTT_CLIENT_ID, ROOT_CA, CERTIFICATE,
                  PRIVATE_KEY);
+HistoryManager historyMgr;
 
 void setup() {
   Serial.begin(115200);
@@ -69,8 +71,9 @@ void setup() {
   // Initialize Button (Active LOW: connect button between GPIO 5 and GND)
   pinMode(PIN_BUTTON, INPUT_PULLUP);
 
-  // 2. Initialize Sensors
+  // 2. Initialize Sensors & History
   sensors.begin();
+  historyMgr.begin();
 
   // 3. Connect to Wi-Fi
   display.showStatus("GreenPulse IoT", "Wi-Fi Connecting", WIFI_SSID,
@@ -174,7 +177,44 @@ void loop() {
 
     // 2. Publish sensor readings to AWS IoT Core
     if (lastData.isValid) {
-      mqtt.publishSensors(lastData);
+      if (mqtt.isConnected()) {
+        mqtt.publishSensors(lastData);
+        
+        // Sync history if available
+        if (historyMgr.hasData()) {
+          mqtt.publishHistory(historyMgr.getAndClearHistoryAsJsonArray());
+        }
+      } else {
+        // Offline: Store data to LittleFS every 10 minutes (600,000 ms)
+        static unsigned long lastOfflineSave = 0;
+        if (millis() - lastOfflineSave >= 600000 || lastOfflineSave == 0) {
+          lastOfflineSave = millis();
+          historyMgr.saveOfflineData(lastData);
+        }
+
+        // --- OFFLINE FAILSAFE WATERING ---
+        // If internet is down but soil becomes critically dry (< 15%), save the plant!
+        if (lastData.soilMoisture < 15 && !rgbLed.isPumpActive()) {
+          Serial.println("[Failsafe] Offline Auto-Watering Triggered!");
+          rgbLed.setPump(true, 40); // Turn ON pump, auto-stop at 40% moisture
+        }
+
+        // --- OFFLINE FAILSAFE LIGHTING ---
+        // Between 6 AM and 6 PM, turn on Smart Lamp if light is too low (< 300 Lux)
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo, 10)) { // 10ms timeout
+          int currentHour = timeinfo.tm_hour;
+          if (currentHour >= 6 && currentHour < 18) {
+            if (lastData.light < 300) {
+              rgbLed.setLamp(true);
+            } else {
+              rgbLed.setLamp(false);
+            }
+          } else {
+            rgbLed.setLamp(false); // Make sure it's off at night
+          }
+        }
+      }
     }
   }
 }

@@ -29,6 +29,16 @@ public:
             Serial.println("\n[WiFi] Connected successfully!");
             Serial.print("[WiFi] IP Address: ");
             Serial.println(WiFi.localIP());
+
+            // Initialize NTP Time
+            Serial.println("[WiFi] Syncing time via NTP...");
+            configTime(5 * 3600 + 1800, 0, "pool.ntp.org", "time.nist.gov"); // IST (UTC+5:30)
+            struct tm timeinfo;
+            if (getLocalTime(&timeinfo, 10000)) {
+                Serial.println("[WiFi] Time synced!");
+            } else {
+                Serial.println("[WiFi] Time sync failed");
+            }
         } else {
             Serial.println("\n[WiFi] Connection timeout. Will retry in loop.");
         }

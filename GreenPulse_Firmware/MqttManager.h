@@ -34,6 +34,7 @@ public:
     void loop();
     bool isConnected();
     bool publishSensors(const SensorData& data);
+    bool publishHistory(const String& jsonArray);
 };
 
 #endif
