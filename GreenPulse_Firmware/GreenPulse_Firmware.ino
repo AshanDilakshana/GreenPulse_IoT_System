@@ -185,21 +185,22 @@ void loop() {
           mqtt.publishHistory(historyMgr.getAndClearHistoryAsJsonArray());
         }
       } else {
-        // Offline: Store data to LittleFS every 10 minutes (600,000 ms)
+        // OFFLINE MODE
+        // Store data to LittleFS every 10 minutes (600,000 ms)
         static unsigned long lastOfflineSave = 0;
         if (millis() - lastOfflineSave >= 600000 || lastOfflineSave == 0) {
           lastOfflineSave = millis();
           historyMgr.saveOfflineData(lastData);
         }
 
-        // --- OFFLINE FAILSAFE WATERING ---
+        // OFFLINE FAILSAFE WATERING
         // If internet is down but soil becomes critically dry (< 15%), save the plant!
         if (lastData.soilMoisture < 15 && !rgbLed.isPumpActive()) {
           Serial.println("[Failsafe] Offline Auto-Watering Triggered!");
           rgbLed.setPump(true, 40); // Turn ON pump, auto-stop at 40% moisture
         }
 
-        // --- OFFLINE FAILSAFE LIGHTING ---
+        // OFFLINE FAILSAFE LIGHTING
         // Between 6 AM and 6 PM, turn on Smart Lamp if light is too low (< 300 Lux)
         struct tm timeinfo;
         if (getLocalTime(&timeinfo, 10)) { // 10ms timeout
