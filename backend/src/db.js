@@ -109,4 +109,14 @@ const getPastWeatherData = async (hours = 6) => {
   }
 };
 
-module.exports = { connectDB, saveSensorData, saveWeatherData, getAggregatedPastData, getPastWeatherData };
+const saveBulkSensorData = async (dataArray) => {
+  if (mongoose.connection.readyState !== 1) return;
+  try {
+    await SensorData.insertMany(dataArray);
+    console.log(`[DB] Successfully bulk inserted ${dataArray.length} historical records.`);
+  } catch (error) {
+    console.error('Error saving bulk historical data:', error);
+  }
+};
+
+module.exports = { connectDB, saveSensorData, saveWeatherData, getAggregatedPastData, getPastWeatherData, saveBulkSensorData };
