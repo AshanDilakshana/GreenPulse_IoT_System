@@ -6,6 +6,8 @@ const { sendWhatsAppAlert } = require('./whatsapp');
 const { saveWeatherData } = require('./db');
 
 let criticalConsecutiveCount = 0;
+let lastNotificationTime = 0;
+let lastNotificationState = "GREEN";
 
 const getWeatherData = async () => {
   try {
@@ -143,9 +145,36 @@ Return ONLY a valid JSON object with the following keys:
 
     const jsonResult = JSON.parse(resultText);
 
-    // Only send alerts if the plant actually needs attention (YELLOW or RED).
-    // Do not spam the user when the plant is healthy (GREEN).
-    if (jsonResult.indicator_color !== "GREEN" && jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
+    const nowMs = Date.now();
+    const timeSinceLastNotification = nowMs - lastNotificationTime;
+    
+    let shouldNotify = false;
+
+    // Rule 1: Always notify immediately if the pump turns ON (Action taken)
+    if (jsonResult.pump_status === "ON" && lastNotificationState !== "PUMP_ON") {
+      shouldNotify = true;
+      lastNotificationState = "PUMP_ON";
+    } 
+    // Rule 2: If the plant needs attention (YELLOW or RED)
+    else if (jsonResult.indicator_color !== "GREEN") {
+      // Notify if the state just worsened/changed (e.g. GREEN to YELLOW)
+      if (jsonResult.indicator_color !== lastNotificationState) {
+        shouldNotify = true;
+        lastNotificationState = jsonResult.indicator_color;
+      } 
+      // Or if it's the same state, remind them every 10 minutes (600000 ms)
+      else if (timeSinceLastNotification >= 600000) {
+        shouldNotify = true;
+      }
+    } 
+    // Rule 3: If everything is back to normal (GREEN)
+    else {
+      lastNotificationState = "GREEN";
+    }
+
+    if (shouldNotify && jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
+      lastNotificationTime = nowMs;
+      
       const alertContent = `${jsonResult.email_alert_body}\n\nQuote: ${jsonResult.dashboard_care_quote}`;
       
       await sendAlertEmail(
