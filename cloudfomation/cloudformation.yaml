@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation Template for GreenPulse IoT System (EC2, Security Groups, and AWS IoT Core)'
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  LatestAmiId:
+    Description: AMI ID for Ubuntu 22.04 LTS (Fetched dynamically from AWS SSM)
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id'
+
+Resources:
+  # 1. Security Group for the EC2 Instance
+  GreenPulseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH, Backend (3000), and Node-RED (1880) access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Allow SSH access
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+          Description: Allow Node.js Backend API access
+        - IpProtocol: tcp
+          FromPort: 1880
+          ToPort: 1880
+          CidrIp: 0.0.0.0/0
+          Description: Allow Node-RED Dashboard access
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP access
+
+  # 2. EC2 Instance
+  GreenPulseServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestAmiId
+      SecurityGroups:
+        - !Ref GreenPulseSecurityGroup
+      Tags:
+        - Key: Name
+          Value: GreenPulse-Server
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update OS
+          apt-get update -y
+          apt-get upgrade -y
+          
+          # Install Node.js (v20)
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y nodejs
+          
+          # Install PM2 and Node-RED
+          npm install -g pm2
+          npm install -g --unsafe-perm node-red
+          
+          echo "GreenPulse Server Initialization Complete"
+
+
+Outputs:
+  InstancePublicIP:
+    Description: Public IP address of the GreenPulse EC2 instance
+    Value: !GetAtt GreenPulseServer.PublicIp
+
+  NodeRedURL:
+    Description: URL to access the Node-RED Dashboard
+    Value: !Sub 'http://${GreenPulseServer.PublicIp}:1880'

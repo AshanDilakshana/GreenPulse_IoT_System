@@ -162,7 +162,7 @@ public:
                         setColorHex("#FF0000", false); // Red ON
                         
                         // Start a very short, non-annoying beep (50ms)
-                        if (!_isMotionActive) { // Don't conflict with PIR buzzer
+                        if (!_isMotionActive) { 
                             digitalWrite(_buzzerPin, HIGH);
                             _pumpBeepActive = true;
                             _pumpBeepStartTime = now;

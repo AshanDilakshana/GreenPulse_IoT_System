@@ -7,7 +7,78 @@
         "info": ""
     },
     {
-        "id": "mqtt_in1",
+        "id": "mqtt_broker1",
+        "type": "mqtt-broker",
+        "name": "AWS IoT Core",
+        "broker": "a1ftomq193a3f9-ats.iot.us-east-1.amazonaws.com",
+        "port": "8883",
+        "tls": "tls_config1",
+        "clientid": "NodeRedDashboard_V2",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true
+    },
+    {
+        "id": "tls_config1",
+        "type": "tls-config",
+        "name": "AWS mTLS",
+        "certname": "a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-certificate.pem.crt",
+        "keyname": "a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-private.pem.key",
+        "caname": "AmazonRootCA1.pem",
+        "verifyservercert": true
+    },
+    {
+        "id": "ui_tab1",
+        "type": "ui_tab",
+        "name": "GreenPulse Dashboard",
+        "icon": "dashboard",
+        "order": 1
+    },
+    {
+        "id": "ui_group_sensors",
+        "type": "ui_group",
+        "name": "Live Sensor Data",
+        "tab": "ui_tab1",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "ui_group_weather",
+        "type": "ui_group",
+        "name": "Weather & Environment",
+        "tab": "ui_tab1",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "ui_group_alerts",
+        "type": "ui_group",
+        "name": "AI Alerts & Quotes",
+        "tab": "ui_tab1",
+        "order": 3,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "ui_group_summary",
+        "type": "ui_group",
+        "name": "Historical AI Analysis",
+        "tab": "ui_tab1",
+        "order": 4,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "mqtt_in_sensors",
         "type": "mqtt in",
         "z": "tab1",
         "name": "AWS IoT Sensors",
@@ -15,11 +86,8 @@
         "qos": "0",
         "datatype": "json",
         "broker": "mqtt_broker1",
-        "nl": false,
-        "rap": false,
-        "inputs": 0,
-        "x": 160,
-        "y": 140,
+        "x": 120,
+        "y": 120,
         "wires": [
             [
                 "func_temp",
@@ -34,11 +102,11 @@
         "id": "func_temp",
         "type": "function",
         "z": "tab1",
-        "name": "Extract Temp",
+        "name": "Temp",
         "func": "msg.payload = msg.payload.temperature || 0;\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 60,
+        "x": 330,
+        "y": 40,
         "wires": [
             [
                 "gauge_temp"
@@ -50,39 +118,30 @@
         "type": "ui_gauge",
         "z": "tab1",
         "name": "Temperature",
-        "group": "ui_group1",
+        "group": "ui_group_sensors",
         "order": 1,
-        "width": 0,
-        "height": 0,
+        "width": 3,
+        "height": 3,
         "gtype": "gage",
-        "title": "Temperature (°C)",
+        "title": "Temperature",
         "label": "°C",
         "format": "{{value}}",
         "min": 0,
         "max": "50",
-        "colors": [
-            "#00b500",
-            "#e6e600",
-            "#ca3838"
-        ],
-        "x": 600,
-        "y": 60,
+        "colors": ["#00b500","#e6e600","#ca3838"],
+        "x": 510,
+        "y": 40,
         "wires": []
     },
     {
         "id": "func_hum",
         "type": "function",
         "z": "tab1",
-        "name": "Extract Humidity",
+        "name": "Hum",
         "func": "msg.payload = msg.payload.humidity || 0;\nreturn msg;",
         "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 400,
-        "y": 100,
+        "x": 330,
+        "y": 80,
         "wires": [
             [
                 "gauge_hum"
@@ -94,34 +153,30 @@
         "type": "ui_gauge",
         "z": "tab1",
         "name": "Humidity",
-        "group": "ui_group1",
+        "group": "ui_group_sensors",
         "order": 2,
-        "width": 0,
-        "height": 0,
+        "width": 3,
+        "height": 3,
         "gtype": "gage",
-        "title": "Humidity (%)",
+        "title": "Humidity",
         "label": "%",
         "format": "{{value}}",
         "min": 0,
         "max": "100",
-        "colors": [
-            "#0080ff",
-            "#004080",
-            "#000040"
-        ],
-        "x": 580,
-        "y": 100,
+        "colors": ["#0080ff","#004080","#000040"],
+        "x": 500,
+        "y": 80,
         "wires": []
     },
     {
         "id": "func_moist",
         "type": "function",
         "z": "tab1",
-        "name": "Extract Moisture",
+        "name": "Moist",
         "func": "msg.payload = msg.payload.soilMoisture || 0;\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 140,
+        "x": 330,
+        "y": 120,
         "wires": [
             [
                 "gauge_moist"
@@ -133,34 +188,30 @@
         "type": "ui_gauge",
         "z": "tab1",
         "name": "Soil Moisture",
-        "group": "ui_group1",
+        "group": "ui_group_sensors",
         "order": 3,
-        "width": 0,
-        "height": 0,
+        "width": 3,
+        "height": 3,
         "gtype": "gage",
-        "title": "Moisture (%)",
+        "title": "Soil Moisture",
         "label": "%",
         "format": "{{value}}",
         "min": 0,
         "max": "100",
-        "colors": [
-            "#ca3838",
-            "#e6e600",
-            "#00b500"
-        ],
-        "x": 600,
-        "y": 140,
+        "colors": ["#ca3838","#e6e600","#00b500"],
+        "x": 510,
+        "y": 120,
         "wires": []
     },
     {
         "id": "func_co2",
         "type": "function",
         "z": "tab1",
-        "name": "Extract CO2",
+        "name": "CO2",
         "func": "msg.payload = msg.payload.co2 || 0;\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 180,
+        "x": 330,
+        "y": 160,
         "wires": [
             [
                 "gauge_co2"
@@ -172,34 +223,30 @@
         "type": "ui_gauge",
         "z": "tab1",
         "name": "CO2",
-        "group": "ui_group1",
+        "group": "ui_group_sensors",
         "order": 4,
-        "width": 0,
-        "height": 0,
+        "width": 3,
+        "height": 3,
         "gtype": "gage",
-        "title": "CO2 (ppm)",
+        "title": "CO2",
         "label": "ppm",
         "format": "{{value}}",
         "min": 400,
         "max": "2000",
-        "colors": [
-            "#00b500",
-            "#e6e600",
-            "#ca3838"
-        ],
-        "x": 600,
-        "y": 180,
+        "colors": ["#00b500","#e6e600","#ca3838"],
+        "x": 490,
+        "y": 160,
         "wires": []
     },
     {
         "id": "func_light",
         "type": "function",
         "z": "tab1",
-        "name": "Extract Light",
+        "name": "Light",
         "func": "msg.payload = msg.payload.light || 0;\nreturn msg;",
         "outputs": 1,
-        "x": 400,
-        "y": 220,
+        "x": 330,
+        "y": 200,
         "wires": [
             [
                 "gauge_light"
@@ -211,210 +258,226 @@
         "type": "ui_gauge",
         "z": "tab1",
         "name": "Light",
-        "group": "ui_group1",
+        "group": "ui_group_sensors",
         "order": 5,
-        "width": 0,
-        "height": 0,
+        "width": 4,
+        "height": 3,
         "gtype": "gage",
-        "title": "Light (Lux)",
+        "title": "Light",
         "label": "Lux",
         "format": "{{value}}",
         "min": 0,
         "max": "5000",
-        "colors": [
-            "#000000",
-            "#e6e600",
-            "#ffffff"
-        ],
-        "x": 600,
-        "y": 220,
+        "colors": ["#000000","#e6e600","#ffffff"],
+        "x": 490,
+        "y": 200,
         "wires": []
     },
     {
-        "id": "a8ba2e52a6cf58b8",
-        "type": "ui_button",
+        "id": "mqtt_in_weather",
+        "type": "mqtt in",
         "z": "tab1",
-        "name": "",
-        "group": "ui_group2",
-        "order": 1,
-        "width": 0,
-        "height": 0,
-        "passthru": false,
-        "label": "Get AI Summary",
-        "tooltip": "",
-        "color": "",
-        "bgcolor": "",
-        "className": "",
-        "icon": "",
-        "payload": "",
-        "payloadType": "str",
-        "topic": "topic",
-        "topicType": "msg",
-        "x": 160,
-        "y": 380,
+        "name": "Weather Topic",
+        "topic": "greenpulse/weather",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker1",
+        "x": 110,
+        "y": 280,
         "wires": [
             [
-                "1bd5ca20d5acfbdf"
+                "func_weather"
             ]
         ]
     },
     {
-        "id": "1bd5ca20d5acfbdf",
-        "type": "mqtt out",
+        "id": "func_weather",
+        "type": "function",
+        "z": "tab1",
+        "name": "Extract Weather",
+        "func": "msg.payload = msg.payload.weather || \"Waiting for data...\";\nreturn msg;",
+        "outputs": 1,
+        "x": 320,
+        "y": 280,
+        "wires": [
+            [
+                "ui_text_weather"
+            ]
+        ]
+    },
+    {
+        "id": "ui_text_weather",
+        "type": "ui_text",
+        "z": "tab1",
+        "group": "ui_group_weather",
+        "order": 1,
+        "width": 6,
+        "height": 2,
+        "name": "Live Weather",
+        "label": "Outside Weather",
+        "format": "{{msg.payload}}",
+        "layout": "col-center",
+        "className": "",
+        "x": 510,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "mqtt_in_alerts",
+        "type": "mqtt in",
+        "z": "tab1",
+        "name": "AI Alerts Topic",
+        "topic": "greenpulse/alerts",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker1",
+        "x": 120,
+        "y": 360,
+        "wires": [
+            [
+                "func_alert",
+                "func_quote"
+            ]
+        ]
+    },
+    {
+        "id": "func_alert",
+        "type": "function",
+        "z": "tab1",
+        "name": "Extract Alert",
+        "func": "msg.payload = msg.payload.email_alert_body || \"No critical alerts.\";\nreturn msg;",
+        "outputs": 1,
+        "x": 310,
+        "y": 340,
+        "wires": [
+            [
+                "ui_text_alert"
+            ]
+        ]
+    },
+    {
+        "id": "ui_text_alert",
+        "type": "ui_text",
+        "z": "tab1",
+        "group": "ui_group_alerts",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "name": "AI Alert",
+        "label": "AI Status / Alert",
+        "format": "<font color='red'>{{msg.payload}}</font>",
+        "layout": "col-center",
+        "x": 480,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "func_quote",
+        "type": "function",
+        "z": "tab1",
+        "name": "Extract Quote",
+        "func": "msg.payload = msg.payload.dashboard_care_quote || \"Listening to the plants...\";\nreturn msg;",
+        "outputs": 1,
+        "x": 310,
+        "y": 380,
+        "wires": [
+            [
+                "ui_text_quote"
+            ]
+        ]
+    },
+    {
+        "id": "ui_text_quote",
+        "type": "ui_text",
+        "z": "tab1",
+        "group": "ui_group_alerts",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "name": "Plant Quote",
+        "label": "Plant Thought",
+        "format": "<i>{{msg.payload}}</i>",
+        "layout": "col-center",
+        "x": 490,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "btn_summary",
+        "type": "ui_button",
         "z": "tab1",
         "name": "",
+        "group": "ui_group_summary",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "passthru": false,
+        "label": "Generate Historical AI Summary",
+        "tooltip": "Analyzes the past 6 hours of sensor data",
+        "color": "white",
+        "bgcolor": "#1f77b4",
+        "icon": "refresh",
+        "payload": "TRIGGER",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 170,
+        "y": 460,
+        "wires": [
+            [
+                "mqtt_out_summary"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out_summary",
+        "type": "mqtt out",
+        "z": "tab1",
+        "name": "Trigger Summary",
         "topic": "greenpulse/trigger_summary",
         "qos": "",
         "retain": "",
         "respTopic": "",
-        "contentType": "",
-        "userProps": "",
-        "correl": "",
-        "expiry": "",
         "broker": "mqtt_broker1",
-        "x": 400,
-        "y": 380,
+        "x": 430,
+        "y": 460,
         "wires": []
     },
     {
-        "id": "666d7aec107aa5bf",
+        "id": "mqtt_in_summary",
         "type": "mqtt in",
         "z": "tab1",
-        "name": "",
+        "name": "Summary Topic",
         "topic": "greenpulse/summary",
-        "qos": "2",
-        "datatype": "auto-detect",
+        "qos": "0",
+        "datatype": "json",
         "broker": "mqtt_broker1",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 420,
-        "y": 440,
+        "x": 120,
+        "y": 520,
         "wires": [
             [
-                "e4d5deaed961ca52"
+                "ui_template_summary"
             ]
         ]
     },
     {
-        "id": "e4d5deaed961ca52",
-        "type": "json",
-        "z": "tab1",
-        "name": "",
-        "property": "payload",
-        "action": "",
-        "pretty": false,
-        "x": 590,
-        "y": 440,
-        "wires": [
-            [
-                "ai_template"
-            ]
-        ]
-    },
-    {
-        "id": "ai_template",
+        "id": "ui_template_summary",
         "type": "ui_template",
         "z": "tab1",
-        "group": "ui_group2",
+        "group": "ui_group_summary",
         "name": "AI Report UI",
-        "order": 1,
-        "width": 0,
-        "height": 0,
-        "format": "<b>Status:</b> {{msg.payload.plant_status}}<br>\n<b>Summary:</b> {{msg.payload.summary}}<br>\n<b>Trend:</b> {{msg.payload.trend_analysis}}<br>\n<b>Prediction:</b> {{msg.payload.prediction}}<br>",
+        "order": 2,
+        "width": 12,
+        "height": 4,
+        "format": "<div style=\"padding:10px; background-color:#2a2a2a; border-radius:5px;\">\n  <h3 style=\"margin-top:0; color:#4CAF50;\">AI Historical Report</h3>\n  <b>Status:</b> {{msg.payload.plant_status}}<br><br>\n  <b>Summary:</b> {{msg.payload.summary}}<br><br>\n  <b>Trend:</b> {{msg.payload.trend_analysis}}<br><br>\n  <b>Prediction:</b> {{msg.payload.prediction}}<br>\n</div>",
         "storeOutMessages": true,
         "fwdInMessages": true,
         "resendOnRefresh": false,
         "templateScope": "local",
-        "className": "",
-        "x": 730,
-        "y": 440,
+        "x": 330,
+        "y": 520,
         "wires": [
             []
         ]
-    },
-    {
-        "id": "mqtt_broker1",
-        "type": "mqtt-broker",
-        "name": "AWS IoT Core",
-        "broker": "a1ftomq193a3f9-ats.iot.us-east-1.amazonaws.com",
-        "port": "8883",
-        "tls": "tls_config1",
-        "clientid": "NodeRedDashboard_V2",
-        "autoConnect": true,
-        "usetls": true,
-        "protocolVersion": "4",
-        "keepalive": "60",
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
-    },
-    {
-        "id": "ui_group1",
-        "type": "ui_group",
-        "name": "Live Sensor Data",
-        "tab": "ui_tab1",
-        "order": 1,
-        "disp": true,
-        "width": "6",
-        "collapse": false
-    },
-    {
-        "id": "ui_group2",
-        "type": "ui_group",
-        "name": "AI Historical Analysis",
-        "tab": "ui_tab1",
-        "order": 2,
-        "disp": true,
-        "width": "12",
-        "collapse": false
-    },
-    {
-        "id": "tls_config1",
-        "type": "tls-config",
-        "name": "AWS mTLS",
-        "cert": "",
-        "key": "",
-        "p12": "",
-        "p12name": "",
-        "ca": "",
-        "certname": "a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-certificate.pem.crt",
-        "keyname": "a00801eca39ba7913071729b2095789bf868ff285fe15a902d665175a37c04dc-private.pem.key",
-        "caname": "AmazonRootCA1.pem",
-        "servername": "",
-        "verifyservercert": true,
-        "alpnprotocol": "",
-        "certEnv": "",
-        "keyEnv": "",
-        "caEnv": ""
-    },
-    {
-        "id": "ui_tab1",
-        "type": "ui_tab",
-        "name": "GreenPulse Dashboard",
-        "icon": "dashboard",
-        "order": 1
-    },
-    {
-        "id": "aa7318c7c80a4240",
-        "type": "global-config",
-        "env": [],
-        "modules": {
-            "node-red-dashboard": "3.6.6"
-        }
     }
 ]

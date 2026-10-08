@@ -1,6 +1,6 @@
 const mqtt = require('mqtt');
-const { saveSensorData } = require('./db');
-const { analyzePlantData } = require('./aiAgent');
+const { saveSensorData, saveBulkSensorData } = require('./db');
+const { analyzePlantData, getWeatherData } = require('./aiAgent');
 
 const fs = require('fs');
 const path = require('path');
@@ -52,6 +52,10 @@ const setupMQTT = () => {
       if (err) console.error('Subscription error for trigger_summary:', err);
       else console.log('Subscribed to greenpulse/trigger_summary');
     });
+    client.subscribe('greenpulse/history', (err) => {
+      if (err) console.error('Subscription error for history:', err);
+      else console.log('Subscribed to greenpulse/history');
+    });
   });
 
   let lastAITime = 0;
@@ -76,6 +80,12 @@ const setupMQTT = () => {
         if (now - lastAITime >= 60000) {
           lastAITime = now;
           
+          // Publish Weather to Node-RED separately
+          const weatherString = await getWeatherData();
+          if (weatherString) {
+            client.publish('greenpulse/weather', JSON.stringify({ weather: weatherString }));
+          }
+
           // 2. Analyze with AI Agent
           const aiResponse = await analyzePlantData(sensorData);
 
@@ -111,6 +121,17 @@ const setupMQTT = () => {
         }
       } catch (error) {
         console.error('Error processing trigger_summary:', error);
+      }
+    } else if (topic === 'greenpulse/history') {
+      try {
+        console.log('[MQTT] Received historical sync data.');
+        const historyArray = JSON.parse(message.toString());
+        
+        if (Array.isArray(historyArray) && historyArray.length > 0) {
+          await saveBulkSensorData(historyArray);
+        }
+      } catch (error) {
+        console.error('Error processing historical data:', error);
       }
     }
   });

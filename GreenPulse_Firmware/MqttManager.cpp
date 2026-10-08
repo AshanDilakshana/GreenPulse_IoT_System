@@ -69,8 +69,8 @@ void MqttManager::begin(ActuatorManager* actuator) {
 
     _mqttClient.setServer(_broker, _port);
     _mqttClient.setCallback(globalMqttCallback);
-    // Increase buffer size to handle JSON payloads comfortably
-    _mqttClient.setBufferSize(1024);
+    // Increase buffer size to 4096 to handle history sync JSON arrays
+    _mqttClient.setBufferSize(4096);
 
     reconnect();
 }
@@ -124,6 +124,20 @@ bool MqttManager::publishSensors(const SensorData& data) {
         Serial.printf("[MQTT] Published to %s: %s\n", _pubTopic, buffer);
     } else {
         Serial.println("[MQTT] Failed to publish sensor data!");
+    }
+    return ok;
+}
+
+bool MqttManager::publishHistory(const String& jsonArray) {
+    if (!_mqttClient.connected()) {
+        return false;
+    }
+
+    bool ok = _mqttClient.publish("greenpulse/history", jsonArray.c_str());
+    if (ok) {
+        Serial.printf("[MQTT] Published offline history (%d bytes).\n", jsonArray.length());
+    } else {
+        Serial.println("[MQTT] Failed to publish offline history! (Maybe too large for buffer)");
     }
     return ok;
 }
