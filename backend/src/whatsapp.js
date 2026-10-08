@@ -79,10 +79,13 @@ client.on('message', async (msg) => {
   // Hardware Command Logic
   if (aiCommand.intent === 'TURN_ON_PUMP' || aiCommand.intent === 'TURN_OFF_PUMP') {
     const pumpStatus = aiCommand.intent === 'TURN_ON_PUMP' ? 'ON' : 'OFF';
-    const commandPayload = JSON.stringify({ pump_status: pumpStatus });
+    const commandPayload = JSON.stringify({ 
+      pump_status: pumpStatus,
+      target_moisture: 60 // Target moisture for Edge Computing auto-off
+    });
 
     if (aiCommand.time === 'NOW') {
-      publishMQTT('greenpulse/commands', commandPayload);
+      publishMQTT('greenpulse/alerts', commandPayload);
     } else {
       // Very basic time-scheduling logic (e.g. HH:MM for today)
       // For a real production app, use node-schedule or agenda
@@ -101,7 +104,7 @@ client.on('message', async (msg) => {
         console.log(`[WhatsApp] Scheduling pump ${pumpStatus} in ${msDelay}ms`);
         
         setTimeout(() => {
-          publishMQTT('greenpulse/commands', commandPayload);
+          publishMQTT('greenpulse/alerts', commandPayload);
           client.sendMessage(msg.from, `🔔 (Scheduled Task) Water pump is now ${pumpStatus}!`);
         }, msDelay);
 
