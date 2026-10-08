@@ -23,7 +23,7 @@ keys/
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch/
-
+.vscode/
 # Logs & temporary files
 *.log
 npm-debug.log*
