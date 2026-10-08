@@ -143,8 +143,9 @@ Return ONLY a valid JSON object with the following keys:
 
     const jsonResult = JSON.parse(resultText);
 
-    // If there is an email alert body that isn't just empty or placeholder, send it
-    if (jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
+    // Only send alerts if the plant actually needs attention (YELLOW or RED).
+    // Do not spam the user when the plant is healthy (GREEN).
+    if (jsonResult.indicator_color !== "GREEN" && jsonResult.email_alert_body && jsonResult.email_alert_body.length > 5 && jsonResult.email_alert_body.toLowerCase() !== "none") {
       const alertContent = `${jsonResult.email_alert_body}\n\nQuote: ${jsonResult.dashboard_care_quote}`;
       
       await sendAlertEmail(
