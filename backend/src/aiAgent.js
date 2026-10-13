@@ -81,13 +81,17 @@ Based on the input, you MUST apply the following logic and output a JSON respons
    - If the difference is large (e.g., > 8°C difference, such as AC cooling the room while it's hot outside), this causes Temperature Shock to the plant. You MUST include a warning in the email_alert_body like "Please move me slightly away from the window/AC".
 
 2. SMART WATERING & RAIN DELAY LOGIC:
-   - Check the Weather Forecast. If "Condition: Rain" is present or Rain probability is high, indoor humidity naturally increases. To prevent root rot, you MUST DELAY watering. Output pump_status as "DELAYED", indicator_color as "YELLOW", and inform the user in the email_alert_body about the rain delay.
-   - If NO Rain is predicted:
-       - If Soil Moisture is between 20% and 40% (Warning Level): Output indicator_color as "YELLOW" and pump_status as "OFF". Generate an email warning the user to water the plant soon.
-       - If Soil Moisture is BELOW 20% (Critical Level): 
-            - If Consecutive Critical Count is 1: This is the first warning. Output indicator_color as "RED" and pump_status as "OFF". Generate an URGENT email warning.
-            - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. ALSO generate an email informing the user that the water pump was automatically activated.
-       - If Soil Moisture is above 40%: Output indicator_color as "GREEN" and pump_status as "OFF". Set "target_moisture" to 0.
+   - If Soil Moisture is ABOVE 40%:
+       - The plant is well-hydrated and healthy. Output indicator_color as "GREEN", pump_status as "OFF", and set "target_moisture" to 0. (Do NOT delay or show warning indicators when moisture is already sufficient, regardless of rain forecast).
+   - If Soil Moisture is BELOW 40% (The plant needs water soon or critically):
+       - Check the Weather Forecast:
+           - If "Condition: Rain" is present or Rain probability is high (>= 50%):
+               - Natural humidity will rise. To prevent over-watering/root rot, autonomous watering is DELAYED. Output pump_status as "DELAYED", indicator_color as "YELLOW", and inform the user in the email_alert_body about the rain delay.
+           - If NO Rain is predicted:
+               - If Soil Moisture is between 20% and 40% (Warning Level): Output indicator_color as "YELLOW" and pump_status as "OFF". Generate an email warning the user to water the plant soon.
+               - If Soil Moisture is BELOW 20% (Critical Level): 
+                    - If Consecutive Critical Count is 1: This is the first warning. Output indicator_color as "RED" and pump_status as "OFF". Generate an URGENT email warning.
+                    - If Consecutive Critical Count is > 1: This means the user ignored the RED warning. Output indicator_color as "RED" and pump_status as "ON" to save the plant. IMPORTANT: When pump_status is "ON", you MUST set "target_moisture" to a healthy optimal percentage (e.g. 60 or 70) so the hardware can auto-stop the pump when reached. ALSO generate an email informing the user that the water pump was automatically activated.
 
 3. TIME-BASED LIGHTING LOGIC:
    - If Light Level is LOW:
