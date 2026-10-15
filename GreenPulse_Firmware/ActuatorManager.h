@@ -149,9 +149,9 @@ public:
         
         // Pump safety and Blinking logic
         if (_isPumpActive) {
-            // Pulse Watering Safety Timeout (Max 15 seconds)
-            if (now - _pumpStartTime >= 15000) {
-                Serial.println("[Actuator] 15s hardware timeout reached. Auto-stopping pump (Pulse watering).");
+            // Pulse Watering Safety Timeout (Max 8 seconds)
+            if (now - _pumpStartTime >= 8000) {
+                Serial.println("[Actuator] 8s hardware timeout reached. Auto-stopping pump (Pulse watering).");
                 setPump(false);
             } else {
                 // Blinking logic
