@@ -36,6 +36,7 @@ client.on('disconnected', (reason) => {
   isClientReady = false;
 });
 
+
 // === INCOMING MESSAGE LISTENER (2-WAY CONVERSATIONAL AI) ===
 client.on('message', async (msg) => {
   const { parseWhatsAppCommand } = require('./aiAgent');
@@ -114,7 +115,9 @@ client.on('message', async (msg) => {
     }
   }
 });
+
 // ============================================================
+
 
 const fs = require('fs');
 const path = require('path');
@@ -185,6 +188,7 @@ const sendWhatsAppAlert = async (aiText, sensorData) => {
     console.error('❌ Error sending WhatsApp alert:', error.message);
   }
 };
+
 
 // Handle graceful shutdown to prevent session cache corruption
 const cleanup = async () => {
